@@ -17,12 +17,7 @@ final class OpenRouterProvider: LLMProvider {
     // Vision-capable models on OpenRouter
     private static let supportedModels = [
         "openai/gpt-4o",
-        "openai/gpt-4o-mini",
-        "anthropic/claude-3-5-sonnet",
-        "anthropic/claude-3-opus",
-        "anthropic/claude-3-haiku",
-        "google/gemini-pro-1.5",
-        "google/gemini-flash-1.5"
+        "openai/gpt-4o-mini"
     ]
 
     init(apiKey: String, endpoint: String = "https://openrouter.ai/api/v1", model: String = "openai/gpt-4o-mini") {
@@ -462,9 +457,7 @@ final class OpenRouterProvider: LLMProvider {
 
         guard !frameDescriptions.isEmpty else {
             // Check if this is a custom model
-            let isCustomModel = !["openai/gpt-4o-mini", "openai/gpt-4o", "anthropic/claude-3-5-sonnet",
-                                 "anthropic/claude-3-haiku", "google/gemini-pro-1.5",
-                                 "google/gemini-flash-1.5"].contains(model)
+            let isCustomModel = !["openai/gpt-4o-mini", "openai/gpt-4o"].contains(model)
 
             let errorMessage = isCustomModel ?
                 "Failed to process images. The model '\(model)' likely doesn't support vision/image inputs. Please use a vision-capable model." :

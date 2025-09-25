@@ -17,11 +17,7 @@ struct SimpleModelSwitcher: View {
 
     private let predefinedModels = [
         ("GPT-4o Mini (Recommended)", "openai/gpt-4o-mini"),
-        ("GPT-4o", "openai/gpt-4o"),
-        ("Claude 3.5 Sonnet", "anthropic/claude-3-5-sonnet"),
-        ("Claude 3 Haiku", "anthropic/claude-3-haiku"),
-        ("Gemini Pro 1.5", "google/gemini-pro-1.5"),
-        ("Gemini Flash 1.5", "google/gemini-flash-1.5")
+        ("GPT-4o", "openai/gpt-4o")
     ]
 
     var body: some View {

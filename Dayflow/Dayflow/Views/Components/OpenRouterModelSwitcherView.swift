@@ -26,8 +26,7 @@ struct OpenRouterModelSwitcherView: View {
         self._selectedModel = State(initialValue: currentModel)
 
         // Check if it's a custom model
-        let knownModels = ["openai/gpt-4o-mini", "openai/gpt-4o", "anthropic/claude-3-5-sonnet",
-                          "anthropic/claude-3-haiku", "google/gemini-pro-1.5", "google/gemini-flash-1.5"]
+        let knownModels = ["openai/gpt-4o-mini", "openai/gpt-4o"]
         if !knownModels.contains(currentModel) {
             self._showCustomInput = State(initialValue: true)
             self._customModelPath = State(initialValue: currentModel)
@@ -70,10 +69,6 @@ struct OpenRouterModelSwitcherView: View {
                     Picker("", selection: $selectedModel) {
                         Text("GPT-4o Mini (Recommended)").tag("openai/gpt-4o-mini")
                         Text("GPT-4o").tag("openai/gpt-4o")
-                        Text("Claude 3.5 Sonnet").tag("anthropic/claude-3-5-sonnet")
-                        Text("Claude 3 Haiku").tag("anthropic/claude-3-haiku")
-                        Text("Gemini Pro 1.5").tag("google/gemini-pro-1.5")
-                        Text("Gemini Flash 1.5").tag("google/gemini-flash-1.5")
                         Text("Custom Model...").tag("custom")
                     }
                     .pickerStyle(.menu)
