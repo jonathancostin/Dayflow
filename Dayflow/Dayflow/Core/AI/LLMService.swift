@@ -17,6 +17,7 @@ struct ProcessedBatchResult {
 
 protocol LLMServicing {
     func processBatch(_ batchId: Int64, completion: @escaping (Result<ProcessedBatchResult, Error>) -> Void)
+    func reinitialize() async
 }
 
 final class LLMService: LLMServicing {
@@ -104,9 +105,39 @@ final class LLMService: LLMServicing {
             print("🦙 [LLMService] Creating OllamaProvider")
             print("   Endpoint: \(endpoint)")
             return OllamaProvider(endpoint: endpoint)
+
+        case .openRouter(let endpoint, let model):
+            print("🌐 [LLMService] Attempting to retrieve OpenRouter API key from Keychain...")
+            print("   Endpoint: \(endpoint)")
+            print("   Model: \(model)")
+
+            if let apiKey = KeychainManager.shared.retrieve(for: "openrouter") {
+                print("✅ [LLMService] API key retrieved from Keychain")
+                print("   Key length: \(apiKey.count) characters")
+
+                if apiKey.isEmpty {
+                    print("❌ [LLMService] API key is empty string - cannot create provider")
+                    return nil
+                }
+
+                print("✅ [LLMService] Creating OpenRouterProvider with valid API key")
+                return OpenRouterProvider(apiKey: apiKey, endpoint: endpoint, model: model)
+            } else {
+                print("❌ [LLMService] Failed to retrieve OpenRouter API key from Keychain")
+                return nil
+            }
         }
     }
     
+    // Reinitialize the provider (e.g., after settings change)
+    func reinitialize() async {
+        print("\n🔄 [LLMService] Reinitializing provider...")
+        // Provider is computed property, so it will automatically use the new settings
+        // Just log the new provider type for debugging
+        let newType = providerType
+        print("✅ [LLMService] Provider reinitialized with type: \(newType)")
+    }
+
     // Keep the existing processBatch implementation for backward compatibility
     func processBatch(_ batchId: Int64, completion: @escaping (Result<ProcessedBatchResult, Error>) -> Void) {
         Task {

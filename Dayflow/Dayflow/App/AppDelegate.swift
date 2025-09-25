@@ -139,6 +139,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                         case .geminiDirect: return "gemini"
                         case .dayflowBackend: return "dayflow"
                         case .ollamaLocal: return "ollama"
+                        case .openRouter: return "openrouter"
                         }
                     }
                     return "unknown"

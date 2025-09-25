@@ -32,8 +32,9 @@ struct OnboardingLLMSelectionView: View {
 
             // Card width calc (no min width, cap at 480)
             let availableWidth = windowWidth - (edgePadding * 2)
-            let rawCardWidth = (availableWidth - (cardGap * 2)) / 3
-            let cardWidth = max(1, min(480, floor(rawCardWidth)))
+            let numCards: CGFloat = 3  // Changed to 3 cards now
+            let rawCardWidth = (availableWidth - (cardGap * (numCards - 1))) / numCards
+            let cardWidth = max(1, min(400, floor(rawCardWidth)))
 
             // Card height calc
             let availableHeight = windowHeight - headerHeight - footerHeight
@@ -77,7 +78,7 @@ struct OnboardingLLMSelectionView: View {
                     Group {
                         Text("Not sure which to choose? ")
                             .foregroundColor(.black.opacity(0.6))
-                        + Text("Bring your own keys is the easiest setup (30s).")
+                        + Text("Google Gemini is the easiest setup (30s).")
                             .fontWeight(.semibold)
                             .foregroundColor(.black.opacity(0.8))
                         + Text(" You can switch at any time in the settings.")
@@ -136,15 +137,15 @@ struct OnboardingLLMSelectionView: View {
             // Bring your own API card (selected by default)
             FlexibleProviderCard(
                 id: "gemini",
-                title: "Bring your own API keys",
+                title: "Use Google Gemini",
                 badgeText: "RECOMMENDED",
                 badgeType: .orange,
-                icon: "key.fill",
+                icon: "sparkle",
                 features: [
-                    ("Utilizes more intelligent AI via Google's Gemini models", true),
-                    ("Uses Gemini's generous free tier (no credit card needed)", true),
-                    ("Faster, more accurate than local models", true),
-                    ("Requires getting an API key (takes 2 clicks)", false)
+                    ("Generous free tier (no credit card)", true),
+                    ("Fast and accurate vision AI", true),
+                    ("Takes 30 seconds to set up", true),
+                    ("Requires Google account", false)
                 ],
                 isSelected: selectedProvider == "gemini",
                 buttonMode: .onboarding(onProceed: {
@@ -162,6 +163,39 @@ struct OnboardingLLMSelectionView: View {
                 onSelect: {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) {
                         selectedProvider = "gemini"
+                    }
+                }
+            ),
+
+            // OpenRouter card
+            FlexibleProviderCard(
+                id: "openrouter",
+                title: "Use OpenRouter",
+                badgeText: "FLEXIBLE",
+                badgeType: .blue,
+                icon: "network",
+                features: [
+                    ("Access to multiple AI models", true),
+                    ("Choose GPT-4V, Claude, or others", true),
+                    ("Pay-as-you-go pricing", true),
+                    ("Requires credit card", false)
+                ],
+                isSelected: selectedProvider == "openrouter",
+                buttonMode: .onboarding(onProceed: {
+                    // Only proceed if this provider is selected
+                    if selectedProvider == "openrouter" {
+                        saveProviderSelection()
+                        onNext("openrouter")
+                    } else {
+                        // Select the card first
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) {
+                            selectedProvider = "openrouter"
+                        }
+                    }
+                }),
+                onSelect: {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) {
+                        selectedProvider = "openrouter"
                     }
                 }
             ),
@@ -215,6 +249,9 @@ struct OnboardingLLMSelectionView: View {
             providerType = .geminiDirect
         case "dayflow":
             providerType = .dayflowBackend()
+        case "openrouter":
+            // Default to GPT-4o-mini for cost-effectiveness
+            providerType = .openRouter(model: "openai/gpt-4o-mini")
         default:
             providerType = .geminiDirect
         }
