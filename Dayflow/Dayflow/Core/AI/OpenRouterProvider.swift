@@ -599,6 +599,7 @@ final class OpenRouterProvider: LLMProvider {
         {
           "title": "5-8 word conversational title",
           "summary": "2-3 sentence summary in first person without using 'I'",
+          "detailedSummary": "3-5 sentence detailed description of what was done, including specific apps, websites, and key actions taken",
           "category": "Choose from the categories above"
         }
 
@@ -629,6 +630,7 @@ final class OpenRouterProvider: LLMProvider {
         struct CardResponse: Codable {
             let title: String
             let summary: String
+            let detailedSummary: String?
             let category: String
         }
 
@@ -642,7 +644,7 @@ final class OpenRouterProvider: LLMProvider {
             subcategory: "",
             title: cardResponse.title,
             summary: cardResponse.summary,
-            detailedSummary: "",
+            detailedSummary: cardResponse.detailedSummary ?? cardResponse.summary,
             distractions: nil,
             appSites: nil
         )
@@ -709,14 +711,19 @@ final class OpenRouterProvider: LLMProvider {
         Merge these two activities into a single card:
 
         Activity 1 (\(lastCard.startTime) - \(lastCard.endTime)):
-        \(lastCard.title) - \(lastCard.summary)
+        Title: \(lastCard.title)
+        Summary: \(lastCard.summary)
+        Details: \(lastCard.detailedSummary)
 
         Activity 2 (\(newCard.startTime) - \(newCard.endTime)):
-        \(newCard.title) - \(newCard.summary)
+        Title: \(newCard.title)
+        Summary: \(newCard.summary)
+        Details: \(newCard.detailedSummary)
 
-        Return JSON: {"title": "merged title", "summary": "merged summary"}
+        Return JSON: {"title": "merged title", "summary": "merged summary", "detailedSummary": "detailed merged description"}
 
-        Create a unified title and summary covering \(lastCard.startTime) to \(newCard.endTime).
+        Create a unified title, summary, and detailed summary covering \(lastCard.startTime) to \(newCard.endTime).
+        The detailed summary should include specific apps, websites, and actions from both activities.
         """
 
         let request = ChatRequest(
@@ -738,6 +745,7 @@ final class OpenRouterProvider: LLMProvider {
         struct MergedContent: Codable {
             let title: String
             let summary: String
+            let detailedSummary: String?
         }
 
         let merged = try extractJSON(from: content, type: MergedContent.self)
@@ -749,7 +757,7 @@ final class OpenRouterProvider: LLMProvider {
             subcategory: lastCard.subcategory,
             title: merged.title,
             summary: merged.summary,
-            detailedSummary: "",
+            detailedSummary: merged.detailedSummary ?? merged.summary,
             distractions: nil,
             appSites: nil
         )
