@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Combine
 
 struct SettingsView: View {
     @EnvironmentObject private var updater: UpdaterManager
@@ -14,6 +15,7 @@ struct SettingsView: View {
     @State private var setupModalProvider: String? = nil
     @State private var hasLoadedProvider: Bool = false
     @State private var analyticsEnabled: Bool = AnalyticsService.shared.isOptedIn
+    @State private var showModelSwitcher = false
     
     // Local LLM saved settings for test UI
     @State private var localBaseURL: String = UserDefaults.standard.string(forKey: "llmLocalBaseURL") ?? "http://localhost:11434"
@@ -79,6 +81,9 @@ struct SettingsView: View {
                                     UserDefaults.standard.set(localModelId, forKey: "llmLocalModelId")
                                 }
                             )
+                        } else if currentProvider == "openrouter" {
+                            // OpenRouter test view with model switching
+                            OpenRouterSettingsSection(showModelSwitcher: $showModelSwitcher)
                         } else if currentProvider == "dayflow" {
                             HStack(spacing: 8) {
                                 Image(systemName: "info.circle")
@@ -161,6 +166,13 @@ struct SettingsView: View {
             )
             .frame(minWidth: 900, minHeight: 650)
         }
+        .sheet(isPresented: $showModelSwitcher) {
+            InlineModelSwitcher(
+                isPresented: $showModelSwitcher,
+                onComplete: { loadCurrentProvider() }
+            )
+            .frame(width: 500, height: 450)
+        }
     }
     
     
@@ -237,6 +249,8 @@ struct SettingsView: View {
                 currentProvider = "dayflow"
             case .ollamaLocal:
                 currentProvider = "ollama"
+            case .openRouter:
+                currentProvider = "openrouter"
             }
         }
         hasLoadedProvider = true
@@ -266,6 +280,9 @@ struct SettingsView: View {
             providerType = .geminiDirect
         case "dayflow":
             providerType = .dayflowBackend()
+        case "openrouter":
+            let model = UserDefaults.standard.string(forKey: "openRouterModel") ?? "openai/gpt-4o-mini"
+            providerType = .openRouter(model: model)
         default:
             return
         }
@@ -287,6 +304,195 @@ struct ProviderSetupWrapper: Identifiable {
     let id: String
 }
 
+// Separate component to simplify the view
+struct OpenRouterSettingsSection: View {
+    @Binding var showModelSwitcher: Bool
+    @State private var currentModel: String = UserDefaults.standard.string(forKey: "openRouterModel") ?? "openai/gpt-4o-mini"
+
+    var body: some View {
+        if let apiKey = KeychainManager.shared.retrieve(for: "openrouter") {
+            VStack(alignment: .leading, spacing: 16) {
+                // Current model display and switch button
+                ModelSwitcherRow(currentModel: currentModel, showModelSwitcher: $showModelSwitcher)
+
+                OpenRouterTestConnectionView(
+                    apiKey: apiKey,
+                    model: currentModel,
+                    onTestComplete: { _ in }
+                )
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)) { _ in
+                currentModel = UserDefaults.standard.string(forKey: "openRouterModel") ?? "openai/gpt-4o-mini"
+            }
+        } else {
+            Text("OpenRouter API key not configured. Please reconfigure in provider selection.")
+                .font(.custom("Nunito", size: 13))
+                .foregroundColor(.black.opacity(0.6))
+        }
+    }
+}
+
+// Separate component to reduce complexity
+struct ModelSwitcherRow: View {
+    let currentModel: String
+    @Binding var showModelSwitcher: Bool
+
+    var body: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Current Model")
+                    .font(.custom("Nunito", size: 12))
+                    .foregroundColor(.black.opacity(0.5))
+                Text(currentModel)
+                    .font(.custom("Nunito", size: 14))
+                    .fontWeight(.medium)
+                    .foregroundColor(.black.opacity(0.8))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+
+            Spacer()
+
+            ModelSwitcherButton(action: { showModelSwitcher = true })
+        }
+    }
+}
+
+struct ModelSwitcherButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .font(.system(size: 14, weight: .medium))
+                Text("Switch Model")
+                    .font(.custom("Nunito", size: 14))
+                    .fontWeight(.semibold)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.orange.opacity(0.9))
+            )
+            .foregroundColor(.white)
+        }
+        .buttonStyle(.plain)
+        .pointingHandCursor()
+    }
+}
+
+
+// Inline model switcher to avoid Xcode project issues
+struct InlineModelSwitcher: View {
+    @Binding var isPresented: Bool
+    let onComplete: () -> Void
+
+    @State private var selectedModel: String = UserDefaults.standard.string(forKey: "openRouterModel") ?? "openai/gpt-4o-mini"
+    @State private var isCustom = false
+    @State private var customPath = ""
+
+    private let models = [
+        ("GPT-4o Mini (Recommended)", "openai/gpt-4o-mini"),
+        ("GPT-4o", "openai/gpt-4o")
+    ]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                Text("Switch Model")
+                    .font(.custom("Nunito", size: 18))
+                    .fontWeight(.semibold)
+                Spacer()
+                Button(action: { isPresented = false }) {
+                    Image(systemName: "xmark")
+                        .foregroundColor(.black.opacity(0.5))
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(20)
+
+            Divider()
+
+            // Content
+            VStack(alignment: .leading, spacing: 16) {
+                ForEach(models, id: \.1) { name, path in
+                    Button(action: {
+                        selectedModel = path
+                        isCustom = false
+                    }) {
+                        HStack {
+                            Image(systemName: selectedModel == path && !isCustom ? "checkmark.circle.fill" : "circle")
+                                .foregroundColor(selectedModel == path && !isCustom ? .blue : .gray)
+                            Text(name)
+                                .foregroundColor(.black)
+                            Spacer()
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                Button(action: { isCustom = true }) {
+                    HStack {
+                        Image(systemName: isCustom ? "checkmark.circle.fill" : "circle")
+                            .foregroundColor(isCustom ? .blue : .gray)
+                        Text("Custom Model...")
+                            .foregroundColor(.black)
+                        Spacer()
+                    }
+                }
+                .buttonStyle(.plain)
+
+                if isCustom {
+                    TextField("e.g. google/gemini-2.0-flash-thinking-exp", text: $customPath)
+                        .textFieldStyle(.roundedBorder)
+                }
+            }
+            .padding(20)
+
+            Spacer()
+
+            Divider()
+
+            // Footer
+            HStack {
+                Button("Cancel") { isPresented = false }
+                    .buttonStyle(.plain)
+                Spacer()
+                Button("Apply") {
+                    let model = isCustom ? customPath : selectedModel
+                    UserDefaults.standard.set(model, forKey: "openRouterModel")
+
+                    let type = LLMProviderType.openRouter(model: model)
+                    if let encoded = try? JSONEncoder().encode(type) {
+                        UserDefaults.standard.set(encoded, forKey: "llmProviderType")
+                    }
+
+                    Task {
+                        await LLMService.shared.reinitialize()
+                    }
+
+                    onComplete()
+                    isPresented = false
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(isCustom && customPath.isEmpty)
+            }
+            .padding(20)
+        }
+        .onAppear {
+            let current = UserDefaults.standard.string(forKey: "openRouterModel") ?? "openai/gpt-4o-mini"
+            if !models.contains(where: { $0.1 == current }) {
+                isCustom = true
+                customPath = current
+            } else {
+                selectedModel = current
+            }
+        }
+    }
+}
 
 struct SettingsView_Previews: PreviewProvider {
     static var previews: some View {

@@ -280,17 +280,91 @@ struct LLMProviderSetupView: View {
             
         case .apiKeyInput:
             VStack(alignment: .leading, spacing: 24) {
-                APIKeyInputView(
-                    apiKey: $setupState.apiKey,
-                    title: "Enter your API key:",
-                    subtitle: "Paste your Gemini API key below",
-                    placeholder: "AIza...",
-                    onValidate: { key in
-                        // Basic validation for now
-                        return key.hasPrefix("AIza") && key.count > 30
+                if providerType == "openrouter" {
+                    // OpenRouter API key input
+                    APIKeyInputView(
+                        apiKey: $setupState.apiKey,
+                        title: "Enter your OpenRouter API key:",
+                        subtitle: "Paste your OpenRouter API key below",
+                        placeholder: "sk-or-...",
+                        onValidate: { key in
+                            // OpenRouter keys typically start with sk-
+                            return key.hasPrefix("sk-") && key.count > 20
+                        }
+                    )
+
+                    // Model selection for OpenRouter
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Select AI Model:")
+                            .font(.custom("Nunito", size: 14))
+                            .fontWeight(.semibold)
+                            .foregroundColor(.black.opacity(0.9))
+
+                        Picker("", selection: $setupState.openRouterModel) {
+                            Text("GPT-4o Mini (Recommended)").tag("openai/gpt-4o-mini")
+                            Text("GPT-4o").tag("openai/gpt-4o")
+                            Text("Custom Model...").tag("custom")
+                        }
+                        .pickerStyle(.menu)
+                        .frame(maxWidth: 300)
+                        .onChange(of: setupState.openRouterModel) { _, newValue in
+                            if newValue == "custom" {
+                                setupState.showCustomModelInput = true
+                                setupState.customModelPath = ""
+                            } else {
+                                setupState.showCustomModelInput = false
+                                setupState.customModelPath = ""
+                            }
+                        }
+
+                        // Custom model input field
+                        if setupState.showCustomModelInput {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Enter OpenRouter model path:")
+                                    .font(.custom("Nunito", size: 13))
+                                    .foregroundColor(.black.opacity(0.6))
+
+                                HStack {
+                                    TextField("e.g. google/gemini-2.0-flash-thinking-exp", text: $setupState.customModelPath)
+                                        .font(.custom("Nunito", size: 14))
+                                        .textFieldStyle(.plain)
+                                        .padding(10)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .fill(Color.black.opacity(0.05))
+                                        )
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .stroke(Color.black.opacity(0.1), lineWidth: 1)
+                                        )
+                                        .frame(maxWidth: 380)
+                                }
+
+                                Text("Examples: qwen/qwen-vl-max, google/gemini-2.0-flash-thinking-exp")
+                                    .font(.custom("Nunito", size: 11))
+                                    .foregroundColor(.black.opacity(0.5))
+                            }
+                            .padding(.top, 8)
+                        } else {
+                            Text("GPT-4o Mini offers the best balance of cost and performance for most users")
+                                .font(.custom("Nunito", size: 13))
+                                .foregroundColor(.black.opacity(0.6))
+                        }
                     }
-                )
-                
+                } else {
+                    // Existing Gemini API key input
+                    APIKeyInputView(
+                        apiKey: $setupState.apiKey,
+                        title: "Enter your API key:",
+                        subtitle: "Paste your Gemini API key below",
+                        placeholder: "AIza...",
+                        onValidate: { key in
+                            // Basic validation for now
+                            return key.hasPrefix("AIza") && key.count > 30
+                        }
+                    )
+                }
+
                 HStack {
                     Spacer()
                     nextButton
@@ -357,6 +431,16 @@ struct LLMProviderSetupView: View {
                         if title == "Testing" || title == "Test Connection" {
                             if providerType == "gemini" {
                                 TestConnectionView(
+                                    onTestComplete: { success in
+                                        setupState.hasTestedConnection = true
+                                        setupState.testSuccessful = success
+                                    }
+                                )
+                            } else if providerType == "openrouter" {
+                                // OpenRouter test connection
+                                OpenRouterTestConnectionView(
+                                    apiKey: setupState.apiKey,
+                                    model: setupState.showCustomModelInput && !setupState.customModelPath.isEmpty ? setupState.customModelPath : setupState.openRouterModel,
                                     onTestComplete: { success in
                                         setupState.hasTestedConnection = true
                                         setupState.testSuccessful = success
@@ -483,6 +567,86 @@ struct LLMProviderSetupView: View {
                     nextButton
                 }
             }
+
+        case .openRouterInstructions:
+            VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Get your OpenRouter API key")
+                        .font(.custom("Nunito", size: 24))
+                        .fontWeight(.semibold)
+                        .foregroundColor(.black.opacity(0.9))
+
+                    Text("OpenRouter provides access to multiple AI models with pay-as-you-go pricing")
+                        .font(.custom("Nunito", size: 14))
+                        .foregroundColor(.black.opacity(0.6))
+                }
+
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack(alignment: .top, spacing: 12) {
+                        Text("1.")
+                            .font(.custom("Nunito", size: 14))
+                            .foregroundColor(.black.opacity(0.6))
+                            .frame(width: 20, alignment: .leading)
+
+                        Group {
+                            Text("Visit OpenRouter ")
+                                .font(.custom("Nunito", size: 14))
+                                .foregroundColor(.black.opacity(0.8))
+                            + Text("(openrouter.ai)")
+                                .font(.custom("Nunito", size: 14))
+                                .foregroundColor(Color(red: 1, green: 0.42, blue: 0.02))
+                                .underline()
+                        }
+                        .onTapGesture { openOpenRouter() }
+                        .pointingHandCursor()
+                    }
+
+                    HStack(alignment: .top, spacing: 12) {
+                        Text("2.")
+                            .font(.custom("Nunito", size: 14))
+                            .foregroundColor(.black.opacity(0.6))
+                            .frame(width: 20, alignment: .leading)
+
+                        Text("Sign up and add credits to your account")
+                            .font(.custom("Nunito", size: 14))
+                            .foregroundColor(.black.opacity(0.8))
+                    }
+
+                    HStack(alignment: .top, spacing: 12) {
+                        Text("3.")
+                            .font(.custom("Nunito", size: 14))
+                            .foregroundColor(.black.opacity(0.6))
+                            .frame(width: 20, alignment: .leading)
+
+                        Text("Go to Keys → Create a new API key and copy it")
+                            .font(.custom("Nunito", size: 14))
+                            .foregroundColor(.black.opacity(0.8))
+                    }
+                }
+                .padding(.vertical, 12)
+
+                // Buttons row
+                HStack {
+                    DayflowSurfaceButton(
+                        action: openOpenRouter,
+                        content: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "safari").font(.system(size: 14))
+                                Text("Open OpenRouter").font(.custom("Nunito", size: 14)).fontWeight(.semibold)
+                            }
+                        },
+                        background: Color(red: 0.25, green: 0.17, blue: 0),
+                        foreground: .white,
+                        borderColor: .clear,
+                        cornerRadius: 8,
+                        horizontalPadding: 24,
+                        verticalPadding: 12,
+                        showOverlayStroke: true
+                    )
+                    Spacer()
+                    nextButton
+                }
+            }
         }
     }
     
@@ -518,12 +682,27 @@ struct LLMProviderSetupView: View {
         if providerType == "gemini" && !setupState.apiKey.isEmpty {
             KeychainManager.shared.store(setupState.apiKey, for: "gemini")
         }
-        
+
+        // Save API key and model for OpenRouter
+        if providerType == "openrouter" && !setupState.apiKey.isEmpty {
+            KeychainManager.shared.store(setupState.apiKey, for: "openrouter")
+
+            // Use custom model path if provided
+            let modelToSave = setupState.showCustomModelInput && !setupState.customModelPath.isEmpty ? setupState.customModelPath : setupState.openRouterModel
+            UserDefaults.standard.set(modelToSave, forKey: "openRouterModel")
+
+            // Save the provider type with the selected model
+            let type = LLMProviderType.openRouter(model: modelToSave)
+            if let encoded = try? JSONEncoder().encode(type) {
+                UserDefaults.standard.set(encoded, forKey: "llmProviderType")
+            }
+        }
+
         // Save local endpoint for local engine selection
         if providerType == "ollama" {
             persistLocalSettings()
         }
-        
+
         // Mark setup as complete
         UserDefaults.standard.set(true, forKey: "\(providerType)SetupComplete")
     }
@@ -562,7 +741,13 @@ struct LLMProviderSetupView: View {
             NSWorkspace.shared.open(url)
         }
     }
-    
+
+    private func openOpenRouter() {
+        if let url = URL(string: "https://openrouter.ai/keys") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
     private func animateAppearance() {
         withAnimation(.easeOut(duration: 0.4)) {
             sidebarOpacity = 1
@@ -586,6 +771,9 @@ class ProviderSetupState: ObservableObject {
     @Published var localEngine: LocalEngine = .ollama
     @Published var localBaseURL: String = "http://localhost:11434"
     @Published var localModelId: String = "qwen2.5vl:3b"
+    @Published var openRouterModel: String = "openai/gpt-4o-mini"  // Default to cost-effective model
+    @Published var showCustomModelInput: Bool = false
+    @Published var customModelPath: String = ""
     
     var currentStep: SetupStep {
         guard currentStepIndex < steps.count else {
@@ -598,7 +786,7 @@ class ProviderSetupState: ObservableObject {
         switch currentStep.contentType {
         case .apiKeyInput:
             return !apiKey.isEmpty && apiKey.count > 20
-        case .terminalCommand(_), .modelDownload(_), .localChoice, .localModelInstall, .information(_, _), .apiKeyInstructions:
+        case .terminalCommand(_), .modelDownload(_), .localChoice, .localModelInstall, .information(_, _), .apiKeyInstructions, .openRouterInstructions:
             return true
         }
     }
@@ -615,7 +803,7 @@ class ProviderSetupState: ObservableObject {
                     title: "Before you begin",
                     contentType: .information(
                         "For experienced users",
-                        "This path is recommended only if you're comfortable running LLMs locally and debugging technical issues. If terms like vLLM or API endpoint don't ring a bell, we recommend going back and picking 'Bring your own API keys'. It's non-technical and takes about 30 seconds.\n\nFor local mode, Dayflow recommends Qwen 2.5-VL 3B as the core vision-language model."
+                        "This path is recommended only if you're comfortable running LLMs locally and debugging technical issues. If terms like vLLM or API endpoint don't ring a bell, we recommend going back and picking 'Google Gemini'. It's non-technical and takes about 30 seconds.\n\nFor local mode, Dayflow recommends Qwen 2.5-VL 3B as the core vision-language model."
                     )
                 ),
                 SetupStep(id: "choose", title: "Choose engine", contentType: .localChoice),
@@ -623,15 +811,26 @@ class ProviderSetupState: ObservableObject {
                 SetupStep(id: "test", title: "Test connection", contentType: .information("Test Connection", "Click the button below to verify your local server responds to a simple chat completion.")),
                 SetupStep(id: "complete", title: "Complete", contentType: .information("All set!", "Local AI is configured and ready to use with Dayflow."))
             ]
+        } else if provider == "openrouter" {
+            steps = [
+                SetupStep(id: "getkey", title: "Get API key",
+                         contentType: .openRouterInstructions),
+                SetupStep(id: "enterkey", title: "Configure API",
+                         contentType: .apiKeyInput),
+                SetupStep(id: "verify", title: "Test connection",
+                         contentType: .information("Test Connection", "Click the button below to verify your OpenRouter API key and selected model")),
+                SetupStep(id: "complete", title: "Complete",
+                         contentType: .information("All set!", "OpenRouter is now configured and ready to use with Dayflow."))
+            ]
         } else { // gemini
             steps = [
-                SetupStep(id: "getkey", title: "Get API key", 
+                SetupStep(id: "getkey", title: "Get API key",
                          contentType: .apiKeyInstructions),
-                SetupStep(id: "enterkey", title: "Enter API key", 
+                SetupStep(id: "enterkey", title: "Enter API key",
                          contentType: .apiKeyInput),
-                SetupStep(id: "verify", title: "Test connection", 
+                SetupStep(id: "verify", title: "Test connection",
                          contentType: .information("Test Connection", "Click the button below to verify your API key works with Gemini")),
-                SetupStep(id: "complete", title: "Complete", 
+                SetupStep(id: "complete", title: "Complete",
                          contentType: .information("All set!", "Gemini is now configured and ready to use with Dayflow."))
             ]
         }
@@ -640,7 +839,12 @@ class ProviderSetupState: ObservableObject {
     func goNext() {
         // Save API key to keychain when moving from API key input step
         if currentStep.contentType.isApiKeyInput && !apiKey.isEmpty {
-            KeychainManager.shared.store(apiKey, for: "gemini")
+            // Detect provider based on API key format
+            if apiKey.hasPrefix("sk-") {
+                KeychainManager.shared.store(apiKey, for: "openrouter")
+            } else {
+                KeychainManager.shared.store(apiKey, for: "gemini")
+            }
             // Reset test state when API key changes
             hasTestedConnection = false
             testSuccessful = false
@@ -691,6 +895,7 @@ enum StepContentType {
     case terminalCommand(String)
     case apiKeyInput
     case apiKeyInstructions
+    case openRouterInstructions
     case modelDownload(String)
     case information(String, String)
     case localChoice
